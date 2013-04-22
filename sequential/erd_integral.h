@@ -5,7 +5,7 @@
 #include "basis_set.h"
 
 
-#define ERD_SCREEN 0
+#define ERD_SCREEN 1
 #define ERD_SPHERIC 1
 
 
