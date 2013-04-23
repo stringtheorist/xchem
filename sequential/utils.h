@@ -1,6 +1,14 @@
 #ifndef __UTILS_H__
 #define __UTILS_H__
 
+#if 0
+double **init_vecs_queue (int num_vecs, int vec_len);
+
+void destroy_vecs_queue (double **vecs_queue, int num_vecs);
+
+void clear_vecs_queue (int num_vecs, int vec_len, double **vecs_queue);
+#endif
+
 
 void sqrt_matrix (int n, double *A, double *A2, double *workm);
 

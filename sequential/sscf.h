@@ -4,7 +4,10 @@
 #include "basis_set.h"
 #include "erd_integral.h"
 
-int sscf (basis_set_t *basis, erd_t *erd_inp, double *H, double *S_sinv, int n, int n_ele, int maxit, double *D_old, 
+double trace_test (double *A, int n);
+int sscf (basis_set_t *basis, erd_t *erd_inp, double *H, double *S, 
+	double *S_sinv, int n, int n_ele, int maxit, int diis_lim,
+	double *D_old, 
 	double *D_new, double *F); 
 void compute_D (int n, int n_ele, double *F, double *D);
 void print_evals (double *A, int n);

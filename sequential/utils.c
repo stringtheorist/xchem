@@ -170,6 +170,52 @@ void transpose (double *Ato, double *Afrom, int nrows, int ncols)
 	}
 }
 
+double **init_vecs_queue (int num_vecs, int vec_len) 
+{
+
+	double **vecs_queue;
+	int i;
+	vecs_queue = (double **)malloc (num_vecs * sizeof(double *));
+	
+	for (i = 0; i < num_vecs; i++) {
+		vecs_queue[i] = (double *)malloc (vec_len * sizeof (double));
+		memset (vecs_queue[i], 0, vec_len * sizeof(double));
+	}
+
+	return vecs_queue;
+	
+}
+
+void destroy_vecs_queue (double **vecs_queue, int num_vecs) 
+{
+
+	int i;
+	for (i = 0; i < num_vecs; i++) {
+		free (vecs_queue[i]);
+	}
+
+	free (vecs_queue);
+
+	return;
+}
+
+void clear_vecs_queue (int num_vecs, int vec_len, double **vecs_queue) 
+{
+	int i;
+
+	for (i = 0; i < num_vecs; i++) {
+		memset (vecs_queue[i], 0, vec_len * sizeof(double));
+	}
+
+	return;
+}
+
+void enqueue_vec (double *vec, int vec_len, double **vecs_queue)
+{
+
+}
+
+
 #if 0
 void initomp (int nthreads, int verbose)
 {

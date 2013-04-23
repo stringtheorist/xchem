@@ -3,7 +3,8 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <math.h>
-#include <omp.h>
+#include <float.h>
+/* #include <omp.h> */
 /* #include <mkl.h> */
 /* #include <mkl_lapack.h> */
 #include <cblas.h>
@@ -16,9 +17,16 @@
 #include "erd_integral.h"
 #include "one_electron.h"
 #include "sscf.h"
+#include "diis.h"
+#include "vec_stack.h"
+
 
 #define TOLER 1.0e-5
-#define MAX_IT 5
+#define MAX_IT 20
+#define DAMP_PAR 0.00
+#define DIIS_LIM 4
+#define DIIS_START 3
+
 
 int main (int argc, char **argv) 
 {
@@ -30,10 +38,12 @@ int main (int argc, char **argv)
 	double *F; /*Fock matrix*/
 	erd_t *erd_inp;
 	int maxit = MAX_IT; /*Max. no of iterations*/
+	int diis_lim = DIIS_LIM;
 	int conv; /*convergence flag*/
 	basis_set_t *basis; /*Basis set Structure*/
 	double *scratch;
 	double *S_sinv;
+
 
 	/*Initialize Basis Set*/
 	basis = create_basis_set ();
@@ -68,8 +78,8 @@ int main (int argc, char **argv)
 	fprintf (stderr, "\n DEBUG: Computed One electron stuff successfully \n");
 	fflush (stderr);
 	
-	printmatCM ("S", S, basis->nfunctions, basis->nfunctions);
-	printmatCM ("H", H, basis->nfunctions, basis->nfunctions);
+	/* printmatCM ("S", S, basis->nfunctions, basis->nfunctions); */
+	/* printmatCM ("H", H, basis->nfunctions, basis->nfunctions); */
 
 	/*Compute square root inverse of S*/
 	sqrtinv_matrix (basis->nfunctions, S, S_sinv, scratch);
@@ -78,7 +88,7 @@ int main (int argc, char **argv)
 	fflush (stderr);
 	
 	/*TODO: SCF iterate until converged*/
-	conv = sscf (basis, erd_inp, H, S_sinv, basis->nfunctions, basis->nelectrons, maxit, D_old, D_new, F);
+	conv = sscf (basis, erd_inp, H, S, S_sinv, basis->nfunctions, basis->nelectrons, maxit, diis_lim, D_old, D_new, F);
 	
 	if (!conv) {
 		fprintf (stderr, "\n DEBUG: Convergence not achieved in %d iterations \n", maxit);
@@ -108,16 +118,27 @@ int main (int argc, char **argv)
 
 }
 
-int sscf (basis_set_t *basis, erd_t *erd_inp, double *H, double *S_sinv, int n, int n_ele, int maxit, double *D_old, 
+int sscf (basis_set_t *basis, erd_t *erd_inp, double *H, double * S, double *S_sinv, int n, int n_ele, int maxit, 
+	int diis_lim, double *D_old, 
 	double *D_new, double *F) 
 {
 	double *int_buffer;
 	double *tmp;
+	double *tmp2;
 	double *F_t;
+	double *D_t;
+	double *E_m;
+	double err;
 	int conv = 0;
 	int iter = 0;
+	double trace;
+	int i;
 	int max_funcs;
 	int max_buffer_dim;
+	diis_t *diis_rts;
+	
+	/* Initialize the DIIS master*/
+	diis_rts = init_diis (diis_lim, n * n);
 
 	max_funcs =  2 * basis->max_momentum + 1;
 	max_buffer_dim = max_funcs * max_funcs * max_funcs * max_funcs;
@@ -125,20 +146,57 @@ int sscf (basis_set_t *basis, erd_t *erd_inp, double *H, double *S_sinv, int n, 
 	int_buffer = (double *)malloc (max_buffer_dim * sizeof(double));
 	tmp = (double *)malloc (n * n * sizeof(double));
 	F_t = (double *)malloc (n * n * sizeof(double));
+	D_t = (double *)malloc (n * n * sizeof(double));
+	E_m = (double *)malloc (n * n * sizeof(double));
+	tmp2 = (double *)malloc (n * n * sizeof(double));
 	memset (int_buffer, 0, max_buffer_dim * sizeof(double));
 	memset (tmp, 0, n * n * sizeof(double));
 	memset (F_t, 0, n * n * sizeof(double));
 	memset (D_old, 0, n * n * sizeof(double));
 	memset (D_new, 0, n * n * sizeof(double));
+	memset (D_t, 0, n * n * sizeof(double));
+	memset (E_m, 0, n * n * sizeof(double));
+	memset (tmp2, 0, n * n * sizeof(double));
 	memcpy (F, H, n * n * sizeof(double));
-
+	
 
 	do {
-		memcpy (F, H, n * n * sizeof(double));
-		/*Build F*/
-		build_fock (basis, erd_inp, int_buffer, D_new, F);
 		
 		memcpy (D_old, D_new, n * n * sizeof(double));
+
+#if 0
+		if (iter == DIIS_START) {
+			diis_rts->errs->num = 0;
+			diis_rts->vecs->num = 0;
+		}
+		
+		if (iter > DIIS_START) {
+			
+			diis_extrap (diis_rts, D_new);
+
+			fprintf (stderr, "\n **trace1 = %lf", trace_test(D_new, n));
+				
+			cblas_dgemm (CblasColMajor, CblasNoTrans, CblasNoTrans, n, n, n,
+				1.0, S_sinv, n, D_new, n, 0.0, tmp, n);
+			
+			cblas_dgemm (CblasColMajor, CblasNoTrans, CblasTrans, n, n, n,
+				1.0, tmp, n, S_sinv, n, 0.0, D_new, n);
+	
+		
+		}
+		
+#endif		
+		
+		
+
+
+		/*Build F*/
+		memcpy (F, H, n * n * sizeof(double));
+		build_fock (basis, erd_inp, int_buffer, D_new, F);
+
+		/* build_fock (basis, erd_inp, int_buffer, D_new, F); */
+		
+		
 		/*Transform F*/
 		cblas_dgemm (CblasColMajor, CblasNoTrans, CblasNoTrans, n, n, n,
 			1.0, S_sinv, n, F, n, 0.0, tmp, n);
@@ -147,20 +205,59 @@ int sscf (basis_set_t *basis, erd_t *erd_inp, double *H, double *S_sinv, int n, 
 			1.0, tmp, n, S_sinv, n, 0.0, F_t, n);
 	
 		/*Compute D*/
+
 		compute_D (n, n_ele, F_t, D_new);
 
+#if 0		
+		/*Calculate DIIS error vector*/
+		cblas_dgemm (CblasColMajor, CblasNoTrans, CblasNoTrans, n, n, n,
+			1.0, F_t, n, D_new, n, 0.0, tmp, n);
+	        cblas_dgemm (CblasColMajor, CblasNoTrans, CblasNoTrans, n, n, n,
+			1.0, tmp, n, S, n, 0.0, E_m, n);
+		cblas_dgemm (CblasColMajor, CblasNoTrans, CblasNoTrans, n, n, n,
+			1.0, S, n, D_new, n, 0.0, tmp2, n);
+		cblas_dgemm (CblasColMajor, CblasNoTrans, CblasNoTrans, n, n, n,
+			1.0, tmp2, n, F_t, n, -1.0, E_m, n);
+		cblas_dgemm (CblasColMajor, CblasNoTrans, CblasNoTrans, n, n, n,
+			1.0, S_sinv, n, E_m, n, 0.0, tmp, n);
+		cblas_dgemm (CblasColMajor, CblasNoTrans, CblasNoTrans, n, n, n,
+			1.0, tmp, n, S_sinv, n, 0.0, E_m, n);
+	
+		
+
+		/* cblas_dgemm (CblasColMajor, CblasNoTrans, CblasNoTrans, n, n, n, */
+		/* 	1.0, F_t, n, D_new, n, 0.0, tmp, n); */
+		/* cblas_dgemm (CblasColMajor, CblasNoTrans, CblasNoTrans, n, n, n, */
+		/* 	-1.0, D_new, n, F_t, n, 1.0, tmp, n); */
+
+		
+		push_vec (E_m, diis_rts->errs);
+		push_vec (D_new, diis_rts->vecs);
+
+
+		fprintf (stderr, "\n **trace 2 = %lf", trace_test (D_new, n)); 
+#endif		
+	
 		/*Transform D*/
 		cblas_dgemm (CblasColMajor, CblasNoTrans, CblasNoTrans, n, n, n,
 			1.0, S_sinv, n, D_new, n, 0.0, tmp, n);
 
 		cblas_dgemm (CblasColMajor, CblasNoTrans, CblasTrans, n, n, n,
 			1.0, tmp, n, S_sinv, n, 0.0, D_new, n);
-
-
-		/*Extrapolate*/
+		
+		
 		iter++;
 		/*Check energy convergence*/
+		err = fabs (calc_hf_ene (D_new, F, H, n) - calc_hf_ene (D_old, F, H, n));
+
+		fprintf (stderr, "\n iteration ene %d: %lf", iter, calc_hf_ene(D_new, F, H, n));
+		fprintf (stderr, "\n iteration %d: %10.6e", iter, err);
+
+
+
 	} while ((iter < maxit));
+
+
 
 	/* printmatCM ("Core Hamiltonian", H, n, n); */
 	
@@ -169,11 +266,19 @@ int sscf (basis_set_t *basis, erd_t *erd_inp, double *H, double *S_sinv, int n, 
 	/* print_evals (D_new, n); */
 	
 	fprintf (stderr, "\n Final Energy: %lf \n", calc_hf_ene (D_new, F, H, n));
-	printmatCM ("Final D", D_new, n, n);
-	printmatCM ("Final F", F, n, n);
+	fprintf (stderr, "\n DIIS restarts, fails: %d %d \n", diis_rts->restarts, diis_rts->fails);
+
+
+	/* printmatCM ("Final D", D_new, n, n); */
+	/* printmatCM ("Final F", F, n, n); */
+
 	
 
-
+	
+	destroy_diis(diis_rts);
+	free (D_t);
+	free (E_m);
+	free (tmp2);
 	free (tmp);
 	free (F_t);
 	free (int_buffer);
@@ -393,3 +498,19 @@ void build_fock (basis_set_t *basis, erd_t *erd_inp, double *int_buffer, double 
 
 	return;
 }
+
+double trace_test (double *A, int n) 
+{
+
+	double trace = 0.0;
+	int i;
+
+	for (i = 0; i < n; i++) {
+		trace += A[i + n * i];
+	}
+
+	return trace;
+}
+
+
+		
