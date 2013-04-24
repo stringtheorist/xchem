@@ -22,11 +22,12 @@
 
 
 #define TOLER 1.0e-5
-#define MAX_IT 20
+#define MAX_IT 10
 #define DAMP_PAR 0.00
 #define DIIS_LIM 4
 #define DIIS_START 3
-
+#define NORM 0
+#define ODA 1
 
 int main (int argc, char **argv) 
 {
@@ -166,6 +167,7 @@ int sscf (basis_set_t *basis, erd_t *erd_inp, double *H, double * S, double *S_s
 
 	do {
 		
+#if ODA
 		/*1. D <- Diagonalize(F_t) */
 		cblas_dgemm (CblasColMajor, CblasNoTrans, CblasNoTrans, n, n, n,
 			1.0, S_sinv, n, F_t, n, 0.0, tmp, n);
@@ -248,8 +250,8 @@ int sscf (basis_set_t *basis, erd_t *erd_inp, double *H, double * S, double *S_s
 	
 		iter++;
 
-
-#if 0
+#endif
+#if NORM
 		memcpy (D_old, D_new, n * n * sizeof(double));
 
 		/*Build F*/
