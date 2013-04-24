@@ -4,7 +4,7 @@
 #include "basis_set.h"
 #include "erd_integral.h"
 
-double trace_test (double *A, int n);
+double compute_trace (double *A, int n);
 int sscf (basis_set_t *basis, erd_t *erd_inp, double *H, double *S, 
 	double *S_sinv, int n, int n_ele, int maxit, int diis_lim,
 	double *D_old, 

@@ -125,21 +125,21 @@ int sscf (basis_set_t *basis, erd_t *erd_inp, double *H, double * S, double *S_s
 	double *int_buffer;
 	double *tmp;
 	double *tmp2;
+	double *F_tt;
 	double *F_t;
 	double *D_t;
-	double *E_m;
+	double *delta_D;
 	double err;
 	int conv = 0;
 	int iter = 0;
 	double trace;
+	double s;
+	double c;
+	double lambda;
 	int i;
 	int max_funcs;
 	int max_buffer_dim;
-	diis_t *diis_rts;
 	
-	/* Initialize the DIIS master*/
-	diis_rts = init_diis (diis_lim, n * n);
-
 	max_funcs =  2 * basis->max_momentum + 1;
 	max_buffer_dim = max_funcs * max_funcs * max_funcs * max_funcs;
 	
@@ -147,96 +147,34 @@ int sscf (basis_set_t *basis, erd_t *erd_inp, double *H, double * S, double *S_s
 	tmp = (double *)malloc (n * n * sizeof(double));
 	F_t = (double *)malloc (n * n * sizeof(double));
 	D_t = (double *)malloc (n * n * sizeof(double));
-	E_m = (double *)malloc (n * n * sizeof(double));
+	delta_D = (double *)malloc (n * n * sizeof(double));
 	tmp2 = (double *)malloc (n * n * sizeof(double));
+	F_tt = (double *)malloc (n * n * sizeof(double));
 	memset (int_buffer, 0, max_buffer_dim * sizeof(double));
 	memset (tmp, 0, n * n * sizeof(double));
 	memset (F_t, 0, n * n * sizeof(double));
 	memset (D_old, 0, n * n * sizeof(double));
 	memset (D_new, 0, n * n * sizeof(double));
 	memset (D_t, 0, n * n * sizeof(double));
-	memset (E_m, 0, n * n * sizeof(double));
+	memset (delta_D, 0, n * n * sizeof(double));
 	memset (tmp2, 0, n * n * sizeof(double));
+	memset (F_tt, 0, n * n * sizeof(double));
 	memcpy (F, H, n * n * sizeof(double));
+
 	
+	memcpy (F_t, H, n * n * sizeof(double));
 
 	do {
 		
-		memcpy (D_old, D_new, n * n * sizeof(double));
-
-#if 0
-		if (iter == DIIS_START) {
-			diis_rts->errs->num = 0;
-			diis_rts->vecs->num = 0;
-		}
-		
-		if (iter > DIIS_START) {
-			
-			diis_extrap (diis_rts, D_new);
-
-			fprintf (stderr, "\n **trace1 = %lf", trace_test(D_new, n));
-				
-			cblas_dgemm (CblasColMajor, CblasNoTrans, CblasNoTrans, n, n, n,
-				1.0, S_sinv, n, D_new, n, 0.0, tmp, n);
-			
-			cblas_dgemm (CblasColMajor, CblasNoTrans, CblasTrans, n, n, n,
-				1.0, tmp, n, S_sinv, n, 0.0, D_new, n);
-	
-		
-		}
-		
-#endif		
-		
-		
-
-
-		/*Build F*/
-		memcpy (F, H, n * n * sizeof(double));
-		build_fock (basis, erd_inp, int_buffer, D_new, F);
-
-		/* build_fock (basis, erd_inp, int_buffer, D_new, F); */
-		
-		
-		/*Transform F*/
+		/*1. D <- Diagonalize(F_t) */
 		cblas_dgemm (CblasColMajor, CblasNoTrans, CblasNoTrans, n, n, n,
-			1.0, S_sinv, n, F, n, 0.0, tmp, n);
+			1.0, S_sinv, n, F_t, n, 0.0, tmp, n);
 
 		cblas_dgemm (CblasColMajor, CblasNoTrans, CblasNoTrans, n, n, n,
-			1.0, tmp, n, S_sinv, n, 0.0, F_t, n);
+			1.0, tmp, n, S_sinv, n, 0.0, F_tt, n);
 	
 		/*Compute D*/
-
-		compute_D (n, n_ele, F_t, D_new);
-
-#if 0		
-		/*Calculate DIIS error vector*/
-		cblas_dgemm (CblasColMajor, CblasNoTrans, CblasNoTrans, n, n, n,
-			1.0, F_t, n, D_new, n, 0.0, tmp, n);
-	        cblas_dgemm (CblasColMajor, CblasNoTrans, CblasNoTrans, n, n, n,
-			1.0, tmp, n, S, n, 0.0, E_m, n);
-		cblas_dgemm (CblasColMajor, CblasNoTrans, CblasNoTrans, n, n, n,
-			1.0, S, n, D_new, n, 0.0, tmp2, n);
-		cblas_dgemm (CblasColMajor, CblasNoTrans, CblasNoTrans, n, n, n,
-			1.0, tmp2, n, F_t, n, -1.0, E_m, n);
-		cblas_dgemm (CblasColMajor, CblasNoTrans, CblasNoTrans, n, n, n,
-			1.0, S_sinv, n, E_m, n, 0.0, tmp, n);
-		cblas_dgemm (CblasColMajor, CblasNoTrans, CblasNoTrans, n, n, n,
-			1.0, tmp, n, S_sinv, n, 0.0, E_m, n);
-	
-		
-
-		/* cblas_dgemm (CblasColMajor, CblasNoTrans, CblasNoTrans, n, n, n, */
-		/* 	1.0, F_t, n, D_new, n, 0.0, tmp, n); */
-		/* cblas_dgemm (CblasColMajor, CblasNoTrans, CblasNoTrans, n, n, n, */
-		/* 	-1.0, D_new, n, F_t, n, 1.0, tmp, n); */
-
-		
-		push_vec (E_m, diis_rts->errs);
-		push_vec (D_new, diis_rts->vecs);
-
-
-		fprintf (stderr, "\n **trace 2 = %lf", trace_test (D_new, n)); 
-#endif		
+		compute_D (n, n_ele, F_tt, D_new);
 	
 		/*Transform D*/
 		cblas_dgemm (CblasColMajor, CblasNoTrans, CblasNoTrans, n, n, n,
@@ -245,42 +183,117 @@ int sscf (basis_set_t *basis, erd_t *erd_inp, double *H, double * S, double *S_s
 		cblas_dgemm (CblasColMajor, CblasNoTrans, CblasTrans, n, n, n,
 			1.0, tmp, n, S_sinv, n, 0.0, D_new, n);
 		
-		
-		iter++;
-		/*Check energy convergence*/
-		err = fabs (calc_hf_ene (D_new, F, H, n) - calc_hf_ene (D_old, F, H, n));
+		/*2. conv = Check (D-D') */
 
+		/*3. F = Fock (D)*/
+		
+		memcpy (F, H, n * n * sizeof(double));
+		build_fock(basis, erd_inp, int_buffer, D_new, F);
+
+		/* delta_D = D - D_t*/
+		
+		memset (delta_D, 0, n * n * sizeof(double));
+		cblas_daxpy (n * n, -1.0, D_t, 1, delta_D, 1);
+		cblas_daxpy (n * n, 1.0, D_new, 1, delta_D, 1);
+
+		/* s = trace(F_t * delta_D) */
+		cblas_dgemm (CblasColMajor, CblasNoTrans, CblasNoTrans, n, n, n,
+			1.0, F_t, n, delta_D, n, 0.0, tmp, n);
+
+		
+		s = compute_trace (tmp, n);
+		
+		/*tmp = F - F_t*/
+		memset (tmp, 0, n * n * sizeof(double));
+		cblas_daxpy (n * n, -1.0, F_t, 1, tmp, 1);
+		cblas_daxpy (n * n, 1.0, F, 1, tmp, 1);
+
+		/* c = trace (tmp * delta_D) */
+		cblas_dgemm (CblasColMajor, CblasNoTrans, CblasNoTrans, n, n, n,
+			1.0, tmp, n, delta_D, n, 0.0, tmp2, n);
+
+		
+		c = compute_trace (tmp2, n);
+		/* set lambda */
+		
+		if (c < -s/2.0) {
+			lambda = 1.0;
+		} else {
+			lambda = -s / (2.0 * c);
+		}
+		memcpy (D_old, D_t, n * n * sizeof (double));
+		memcpy (F_tt, F_t, n * n * sizeof (double));
+
+
+		/* D_t = (1-lambda) * D_t + lambda * D */
+		memset (tmp, 0, n * n * sizeof(double));
+		cblas_daxpy (n * n, (1.0 - lambda), D_t, 1, tmp, 1);
+		cblas_daxpy (n * n, lambda, D_new, 1, tmp, 1);
+		memset (D_t, 0, n * n * sizeof(double));
+		cblas_daxpy (n * n, 1.0, tmp, 1, D_t, 1);
+		
+		/* F_t = (1-lambda) * F_t + lambda * F */
+		memset (tmp, 0, n * n * sizeof(double));
+		cblas_daxpy (n * n, (1.0 - lambda), F_t, 1, tmp, 1);
+		cblas_daxpy (n * n, lambda, F, 1, tmp, 1);
+		memset (F_t, 0, n * n * sizeof(double));
+		cblas_daxpy (n * n, 1.0, tmp, 1, F_t, 1);
+		
+		/* print energy at each iteration */
+		err = fabs (calc_hf_ene (D_new, F, H, n) - calc_hf_ene (D_old, F_tt, H, n));
 		fprintf (stderr, "\n iteration ene %d: %lf", iter, calc_hf_ene(D_new, F, H, n));
 		fprintf (stderr, "\n iteration %d: %10.6e", iter, err);
+		fprintf (stderr, "\n lambda %d: %lf",iter, lambda);
 
+	
+		iter++;
+
+
+#if 0
+		memcpy (D_old, D_new, n * n * sizeof(double));
+
+		/*Build F*/
+		memcpy (F, H, n * n * sizeof(double));
+		build_fock (basis, erd_inp, int_buffer, D_new, F);
+
+		/*Transform F*/
+		cblas_dgemm (CblasColMajor, CblasNoTrans, CblasNoTrans, n, n, n,
+			1.0, S_sinv, n, F, n, 0.0, tmp, n);
+
+		cblas_dgemm (CblasColMajor, CblasNoTrans, CblasNoTrans, n, n, n,
+			1.0, tmp, n, S_sinv, n, 0.0, F_t, n);
+	
+		/*Compute D*/
+		compute_D (n, n_ele, F_t, D_new);
+	
+		/*Transform D*/
+		cblas_dgemm (CblasColMajor, CblasNoTrans, CblasNoTrans, n, n, n,
+			1.0, S_sinv, n, D_new, n, 0.0, tmp, n);
+
+		cblas_dgemm (CblasColMajor, CblasNoTrans, CblasTrans, n, n, n,
+			1.0, tmp, n, S_sinv, n, 0.0, D_new, n);
+		
+		iter++;
+
+		/*Check energy convergence*/
+		err = fabs (calc_hf_ene (D_new, F, H, n) - calc_hf_ene (D_old, F, H, n));
+		fprintf (stderr, "\n iteration ene %d: %lf", iter, calc_hf_ene(D_new, F, H, n));
+		fprintf (stderr, "\n iteration %d: %10.6e", iter, err);
+#endif
 
 
 	} while ((iter < maxit));
 
-
-
-	/* printmatCM ("Core Hamiltonian", H, n, n); */
-	
-	
-	/* printmatCM ("Test matrix", D_new, n, n); */
-	/* print_evals (D_new, n); */
-	
 	fprintf (stderr, "\n Final Energy: %lf \n", calc_hf_ene (D_new, F, H, n));
-	fprintf (stderr, "\n DIIS restarts, fails: %d %d \n", diis_rts->restarts, diis_rts->fails);
-
 
 	/* printmatCM ("Final D", D_new, n, n); */
 	/* printmatCM ("Final F", F, n, n); */
-
-	
-
-	
-	destroy_diis(diis_rts);
 	free (D_t);
-	free (E_m);
+	free (delta_D);
 	free (tmp2);
 	free (tmp);
 	free (F_t);
+	free (F_tt);
 	free (int_buffer);
 	return 0;
 }	
@@ -499,7 +512,7 @@ void build_fock (basis_set_t *basis, erd_t *erd_inp, double *int_buffer, double 
 	return;
 }
 
-double trace_test (double *A, int n) 
+double compute_trace (double *A, int n) 
 {
 
 	double trace = 0.0;
