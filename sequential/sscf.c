@@ -190,7 +190,7 @@ int sscf (basis_set_t *basis, erd_t *erd_inp, double *H, double * S, double *S_s
 		/*3. F = Fock (D)*/
 		
 		memcpy (F, H, n * n * sizeof(double));
-		build_fock(basis, erd_inp, int_buffer, D_new, F);
+		build_fock (basis, erd_inp, int_buffer, D_new, F);
 
 		/* delta_D = D - D_t*/
 		
@@ -251,6 +251,7 @@ int sscf (basis_set_t *basis, erd_t *erd_inp, double *H, double * S, double *S_s
 		iter++;
 
 #endif
+
 #if NORM
 		memcpy (D_old, D_new, n * n * sizeof(double));
 
