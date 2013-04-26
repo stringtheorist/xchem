@@ -1,3 +1,11 @@
+/* Xchem: An interface to the ERD integrals package. */
+
+/* Copyright (C) Aftab Patel, Xing Liu  */
+
+/* See ../COPYRIGHT and ../LISENCE */
+
+
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>

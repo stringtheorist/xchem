@@ -1,3 +1,10 @@
+/* Xchem: An interface to the ERD integrals package. */
+
+/* Copyright (C) Aftab Patel, Xing Liu  */
+
+/* See ../COPYRIGHT and ../LISENCE */
+
+
 #ifndef __OED_INTEGRAL_H__
 #define __OED_INTEGRAL_H__
 

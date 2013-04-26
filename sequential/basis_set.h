@@ -1,5 +1,15 @@
+/* Xchem: An interface to the ERD integrals package. */
+
+/* Copyright (C) Aftab Patel, Xing Liu  */
+
+/* See ../COPYRIGHT and ../LISENCE */
+
+
+
+
 #ifndef __BASIS_SET_H__
 #define __BASIS_SET_H__
+
 
 
 typedef struct _basis_set_t

@@ -1,3 +1,11 @@
+
+/* Xchem: An interface to the ERD integrals package. */
+
+/* Copyright (C) Aftab Patel, Xing Liu  */
+
+/* See ../COPYRIGHT and ../LISENCE */
+
+
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -22,7 +30,7 @@
 
 
 #define TOLER 1.0e-5
-#define MAX_IT 10
+#define MAX_IT 20
 #define DAMP_PAR 0.00
 #define DIIS_LIM 4
 #define DIIS_START 3
@@ -243,9 +251,12 @@ int sscf (basis_set_t *basis, erd_t *erd_inp, double *H, double * S, double *S_s
 		
 		/* print energy at each iteration */
 		err = fabs (calc_hf_ene (D_new, F, H, n) - calc_hf_ene (D_old, F_tt, H, n));
-		fprintf (stderr, "\n iteration ene %d: %lf", iter, calc_hf_ene(D_new, F, H, n));
-		fprintf (stderr, "\n iteration %d: %10.6e", iter, err);
-		fprintf (stderr, "\n lambda %d: %lf",iter, lambda);
+		/* fprintf (stderr, "\n iteration ene %d: %lf", iter, calc_hf_ene(D_new, F, H, n)); */
+		/* fprintf (stderr, "\n iteration %d: %10.6e", iter, err); */
+		/* fprintf (stderr, "\n lambda %d: %lf",iter, lambda); */
+
+		fprintf (stdout, "\n %d, %lf, %10.6e", iter, calc_hf_ene(D_new, F, H, n), err);
+
 
 	
 		iter++;
@@ -280,8 +291,11 @@ int sscf (basis_set_t *basis, erd_t *erd_inp, double *H, double * S, double *S_s
 
 		/*Check energy convergence*/
 		err = fabs (calc_hf_ene (D_new, F, H, n) - calc_hf_ene (D_old, F, H, n));
-		fprintf (stderr, "\n iteration ene %d: %lf", iter, calc_hf_ene(D_new, F, H, n));
-		fprintf (stderr, "\n iteration %d: %10.6e", iter, err);
+		/* fprintf (stderr, "\n iteration ene %d: %lf", iter, calc_hf_ene(D_new, F, H, n)); */
+		/* fprintf (stderr, "\n iteration %d: %10.6e", iter, err); */
+		fprintf (stdout, "\n %d, %lf, %10.6e", iter, calc_hf_ene(D_new, F, H, n), err);
+		
+
 #endif
 
 

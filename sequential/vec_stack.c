@@ -1,3 +1,10 @@
+
+/* Xchem: An interface to the ERD integrals package. */
+
+/* Copyright (C) Aftab Patel, Xing Liu  */
+
+/* See ../COPYRIGHT and ../LISENCE */
+
 #include <stdlib.h>
 #include <string.h>
 #include "vec_stack.h"

@@ -1,3 +1,10 @@
+/* Xchem: An interface to the ERD integrals package. */
+
+/* Copyright (C) Aftab Patel, Xing Liu  */
+
+/* See ../COPYRIGHT and ../LISENCE */
+
+
 #ifndef __DIIS_H__
 #define __DIIS_H__
 
